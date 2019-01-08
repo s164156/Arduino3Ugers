@@ -33,7 +33,7 @@ void loop() {
       digitalWrite(ledPin,LOW);
       delay(100);
     }
-    for(int j = 0; j<3 ; j++){
+    for(int j = 0; j<4 ; j++){
       if(rnd-binarray[j]>=0){
         rnd = rnd - binarray[j];
         binresult[j] = 1;
@@ -44,7 +44,7 @@ void loop() {
       }
       
     }
-    for(int j = 0; j<3 ; j++){
+    for(int j = 0; j<4 ; j++){
       digitalWrite(pinsarray[j],binresult[j]);
          }
   }
