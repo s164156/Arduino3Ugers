@@ -14,7 +14,7 @@ void setup() {
   pinMode(buttonPin,INPUT);
   digitalWrite(ledPin,LOW);
   Serial.begin(9600);
-  for(int i = 0; i>3;i++){
+  for(int i = 0; i<4;i++){
     pinMode(pinsarray[i],OUTPUT);
   }
 
