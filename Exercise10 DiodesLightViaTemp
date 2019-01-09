@@ -1,0 +1,38 @@
+int sensorPin = 0;
+const int Green = 11;
+const int Yellow = 10;
+const int Red = 9;
+
+void setup(){
+  Serial.begin(9600);
+  pinMode(Green,OUTPUT);
+  pinMode(Yellow,OUTPUT);
+  pinMode(Red,OUTPUT);
+}
+void loop(){
+  int reading = analogRead(sensorPin);  
+  // converting that reading to voltage, we use 5volts
+  float voltage = reading * 5.0;
+  voltage /= 1024.0; 
+  float temperatureC = (voltage - 0.5) * 100 ;  
+
+  if( temperatureC>=28){
+    digitalWrite(Red,HIGH);
+    digitalWrite(Green,LOW);
+    digitalWrite(Yellow,LOW);
+  }
+  if( temperatureC>=25 && temperatureC<=27.9){
+    digitalWrite(Red,LOW);
+    digitalWrite(Green,LOW);
+    digitalWrite(Yellow,HIGH);
+  }
+  if( temperatureC<=24.9){ //could be replaced by a simple else.
+    digitalWrite(Red,LOW);
+    digitalWrite(Green,HIGH);
+    digitalWrite(Yellow,LOW);
+  }
+  
+  Serial.print(temperatureC); 
+  Serial.println("degrees C");
+  delay(1000);                                 
+}
