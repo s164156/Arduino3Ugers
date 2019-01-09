@@ -1,0 +1,49 @@
+
+int pins[] = {6,5,4,3,2};
+
+
+void setup() {
+  Serial.begin(9600);
+  // initialize the LED pins:
+  for (int thisPin = 2; thisPin <= 6; thisPin++) {
+    pinMode(thisPin, OUTPUT);
+  }
+}
+
+//pin 2 = 1
+//pin 3 = 2
+//pin 4 = 4
+//pin 5 = 8
+//pin 6 = 16
+
+int binarray16[] = {16,8,4,2,1};
+int actualarray[5] = {};
+
+void loop() {
+  if (Serial.available() > 0) {
+    int inByte = Serial.parseInt();
+    Serial.println(inByte);
+
+    if(inByte > 31){
+      Serial.println("Could not display number with 5 pins");
+    }
+    else{
+      for(int i = 0; i<5;i++){
+        if(inByte-binarray16[i]>=0){
+          inByte = inByte-binarray16[i];
+          actualarray[i] = 1;
+        }
+        else{
+          actualarray[i]=0;
+        }
+      }
+    }
+    for(int j = 0; j<5;j++){
+      Serial.print(actualarray[j]);
+    }
+    for( int k = 0; k<5;k++){
+      digitalWrite(pins[k],actualarray[k]);
+    }
+    
+  }
+}
