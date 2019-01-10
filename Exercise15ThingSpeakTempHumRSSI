@@ -1,0 +1,50 @@
+#include <ESP8266WiFi.h>
+#include <WiFiClient.h>
+#include <ThingSpeak.h>
+#include "DHT.h"
+#define DHTPIN D2     // what digital pin the DHT22 is conected to
+#define DHTTYPE DHT22   // there are multiple kinds of DHT sensors
+
+
+
+char ssid[] = "."; // your SSID
+char pass[] = "pingpongok5"; // your SSID Password
+
+unsigned long channelID = 673864; //your channal
+const char * myWriteAPIKey = "yourapikey"; //your API
+const char* server = "api.thingspeak.com";
+const int postingInterval = 20 * 1000; // post data every 10 seconds
+
+DHT dht(DHTPIN, DHTTYPE);
+
+
+WiFiClient client;
+
+void setup() {
+    Serial.begin(115200);
+    WiFi.begin(ssid, pass); 
+    while ( WiFi.status() != WL_CONNECTED ) {
+        delay (500);
+        Serial.print (".");
+    }
+    Serial.print ( "Connected to " + String(ssid));
+    Serial.print ( "IP address: " );
+    Serial.println ( WiFi.localIP() );
+}
+void loop() { //do nothing in the loop
+  
+  long rssi = WiFi.RSSI();
+  float h = dht.readHumidity();
+  // Read temperature as Celsius (the default)
+  float t = dht.readTemperature();
+  Serial.println(h);
+  Serial.println(t);
+
+  ThingSpeak.begin(client);
+  ThingSpeak.setField(1,rssi);
+  ThingSpeak.setField(2,h);
+  ThingSpeak.setField(3,t);
+  ThingSpeak.writeFields(channelID, myWriteAPIKey); //get from Thingspeak
+  client.stop();
+  delay(postingInterval); // wait and then post again
+    }
