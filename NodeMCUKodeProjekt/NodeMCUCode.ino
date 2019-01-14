@@ -5,25 +5,38 @@
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
+#include <Wire.h> 
+#include <LiquidCrystal_I2C.h>
+
+// Set the LCD address to 0x27 for a 16 chars and 2 line display
+LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 SoftwareSerial BTserial(D6, D7); //D6 -> TXD && D7 -> RXD
 char c=' ';
 boolean NL = true;
- 
+int counter = 0;
 //Our HTML webpage contents in program memory
 const char MAIN_page[] PROGMEM = R"=====(
 <!DOCTYPE html>
 <html>
 <body>
-<center>
-<h1>Locking System v0.1 Sebastian & Magnus</h1><br>
-Click to turn <a href="ledOn" target="myIframe">LED ON</a><br>
-Ciclk to turn <a href="ledOff" target="myIframe">LED OFF</a><br>
-LED State:<iframe name="myIframe" width="100" height="25" frameBorder="0"><br>
-</center>
+<P ALIGN=LEFT>
+<h1><p align="center">Locking System v0.1 Sebastian & Magnus</h1><br>
+
+Visitor count: somevariable<br>
+<br>
+Click to open lock <a href="LockOff" target ="myIframe"><button type="button">Open Lock!</button></a><br>
+<br>
+Click to close lock <a href="LockOn" target ="myIframe"><button type="button">Close Lock!</button></a><br>
+Current Lock State:<iframe name="myIframe" width="100" height="25" frameBorder="0"><br>
+
+
+</P>
+
 </body>
 </html>
 )=====";
+
 //---------------------------------------------------------------
 //On board LED Connected to GPIO2
 #define LED 2  
@@ -42,23 +55,38 @@ void handleRoot() {
  Serial.println("You called root page");
  String s = MAIN_page; //Read HTML contents
  server.send(200, "text/html", s); //Send web page
+ lcd.clear();
+ lcd.setCursor(0,0);
+ lcd.print("Lock In Page");
+ 
 }
  
-void handleLEDon() { 
- Serial.println("LED on page");
+void handleLockON() { 
+ Serial.println("Lock On Page");
  digitalWrite(LED,LOW); //LED is connected in reverse
- server.send(200, "text/html", "ON"); //Send ADC value only to client ajax request
+ server.send(200, "text/html", "LockOn"); //Send ADC value only to client ajax request
+ lcd.clear();
+ lcd.setCursor(0,0);
+ lcd.print("Lock Status: ON");
 }
  
-void handleLEDoff() { 
- Serial.println("LED off page");
+void handleLockOFF() { 
+ Serial.println("Lock OFF Page");
  digitalWrite(LED,HIGH); //LED off
- server.send(200, "text/html", "OFF"); //Send ADC value only to client ajax request
+ server.send(200, "text/html", "LockOff"); //Send ADC value only to client ajax request
+ lcd.clear();
+ lcd.setCursor(0,0);
+ lcd.print("Lock Status: OFF");
 }
 void BLTFunc(){
   if (BTserial.available()){
         c = BTserial.read();
         Serial.write(c);
+        //Let's assume that when the connection is first made through the app
+        //it sends a single char, from that we can count up how many visitors have been there
+        counter +=1;
+        Serial.println("Visitor Count: ");
+        Serial.print(counter);
     }
  
     // Read from the Serial Monitor and send to the Bluetooth module
@@ -80,6 +108,10 @@ void BLTFunc(){
 //                  SETUP
 //==============================================================
 void setup(void){
+  lcd.begin();
+  lcd.backlight();
+  lcd.setCursor(0, 0);
+  lcd.print("HELLO");
   Serial.begin(9600);
   BTserial.begin(9600);
   delay(100);
@@ -106,8 +138,8 @@ void setup(void){
   Serial.println(WiFi.localIP());  //IP address assigned to your ESP
  
   server.on("/", handleRoot);      //Which routine to handle at root location. This is display page
-  server.on("/ledOn", handleLEDon); //as Per  <a href="ledOn">, Subroutine to be called
-  server.on("/ledOff", handleLEDoff);
+  server.on("/LockOn", handleLockON); //as Per  <a href="ledOn">, Subroutine to be called
+  server.on("/LockOff", handleLockOFF); 
  
   server.begin();                  //Start server
   Serial.println("HTTP server started");
