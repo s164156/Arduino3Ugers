@@ -7,11 +7,20 @@
 #include <ESP8266WebServer.h>
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
+#include <ThingSpeak.h>
+#include <elapsedMillis.h>
+elapsedMillis timeElapsed;
 
+unsigned long time1;
+unsigned long channelID = xx; //your channal
+const char * myWriteAPIKey = "xx"; //your API
+const char* serverTHINGSPEAK = "api.thingspeak.com";
+const int postingInterval = 20 * 1000; // post data every 20 seconds
 // Set the LCD address to 0x27 for a 16 chars and 2 line display
 LiquidCrystal_I2C lcd(0x27, 16, 2);
-
+WiFiClient client;
 SoftwareSerial BTserial(D6, D7); //D6 -> TXD && D7 -> RXD
+
 char c=' ';
 boolean NL = true;
 int counter = 0;
@@ -42,12 +51,12 @@ Current Lock State:<iframe name="myIframe" width="100" height="25" frameBorder="
 #define LED 2  
  
 //SSID and Password of your WiFi router
-const char* ssid = ".";
-const char* password = "pingpongok5";
+const char* ssid = "x";
+const char* password = "x";
  
 //Declare a global object variable from the ESP8266WebServer class.
 ESP8266WebServer server(80); //Server on port 80
- 
+
 //===============================================================
 // This routine is executed when you open its IP in browser
 //===============================================================
@@ -78,15 +87,25 @@ void handleLockOFF() {
  lcd.setCursor(0,0);
  lcd.print("Lock Status: OFF");
 }
+
+void ThingSpeakUpload(){
+  ThingSpeak.begin(client);
+  ThingSpeak.setField(1,counter);
+  ThingSpeak.writeFields(channelID, myWriteAPIKey); //get from Thingspeak
+  client.stop();
+}
+
 void BLTFunc(){
   if (BTserial.available()){
         c = BTserial.read();
         Serial.write(c);
+    
         //Let's assume that when the connection is first made through the app
         //it sends a single char, from that we can count up how many visitors have been there
         counter +=1;
-        Serial.println("Visitor Count: ");
-        Serial.print(counter);
+        //Serial.println("Visitor Count: ");
+        //Serial.print(counter);
+        
     }
  
     // Read from the Serial Monitor and send to the Bluetooth module
@@ -147,6 +166,10 @@ void setup(void){
 
 
 void loop(void){
+  if(timeElapsed > postingInterval){
+    ThingSpeakUpload();
+    timeElapsed = 0;
+  }
   server.handleClient();          //Handle client requests
-  BLTFunc();
+  BLTFunc(); 
 }
