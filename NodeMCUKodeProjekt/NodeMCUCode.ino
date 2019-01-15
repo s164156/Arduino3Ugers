@@ -1,6 +1,5 @@
-//Sources:
-//https://circuits4you.com/2018/02/05/esp8266-arduino-wifi-web-server-led-on-off-control/
-//
+//Library includes
+
 #include <SoftwareSerial.h>
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
@@ -11,20 +10,27 @@
 #include <elapsedMillis.h>
 elapsedMillis timeElapsed;
 
+//Global variable declarations
+char c= ' ';
+boolean NL = true;
+int counter = 0;
+int doorlock = 4; //pin for doorlock
+
+//thingspeak variables
 unsigned long time1;
-unsigned long channelID = xx; //your channal
-const char * myWriteAPIKey = "xx"; //your API
+unsigned long channelID = 677039;
+const char * myWriteAPIKey = "G2GJ90ZGZQJCDNWC"; 
 const char* serverTHINGSPEAK = "api.thingspeak.com";
-const int postingInterval = 20 * 1000; // post data every 20 seconds
+
+const int postingInterval = 20 * 1000; // posting interval 20s.
+
 // Set the LCD address to 0x27 for a 16 chars and 2 line display
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 WiFiClient client;
 SoftwareSerial BTserial(D6, D7); //D6 -> TXD && D7 -> RXD
 
-char c=' ';
-boolean NL = true;
-int counter = 0;
-//Our HTML webpage contents in program memory
+
+//HTML webpage stored in progmem, basically stores data in flash memory of the nodemcu
 const char MAIN_page[] PROGMEM = R"=====(
 <!DOCTYPE html>
 <html>
@@ -46,48 +52,51 @@ Current Lock State:<iframe name="myIframe" width="100" height="25" frameBorder="
 </html>
 )=====";
 
-//---------------------------------------------------------------
-//On board LED Connected to GPIO2
+//Just defined for LED 
 #define LED 2  
  
-//SSID and Password of your WiFi router
-const char* ssid = "x";
-const char* password = "x";
+//SSID & PASS for the dtu network thing
+const char* ssid = "TP-LINK_8E7A";
+const char* password = "41308561";
  
-//Declare a global object variable from the ESP8266WebServer class.
+//Let's use the 8266WebServer class which is a lot more convient
 ESP8266WebServer server(80); //Server on port 80
 
-//===============================================================
-// This routine is executed when you open its IP in browser
-//===============================================================
+//Root page 
 void handleRoot() {
  Serial.println("You called root page");
  String s = MAIN_page; //Read HTML contents
  server.send(200, "text/html", s); //Send web page
+ 
  lcd.clear();
  lcd.setCursor(0,0);
  lcd.print("Lock In Page");
  
 }
- 
+//LockON 'page'
 void handleLockON() { 
  Serial.println("Lock On Page");
  digitalWrite(LED,LOW); //LED is connected in reverse
- server.send(200, "text/html", "LockOn"); //Send ADC value only to client ajax request
+ server.send(200, "text/html", "LockOn"); 
+ 
  lcd.clear();
  lcd.setCursor(0,0);
  lcd.print("Lock Status: ON");
+ digitalWrite(doorlock,HIGH);
 }
- 
+//LockOFF 'page'
 void handleLockOFF() { 
  Serial.println("Lock OFF Page");
  digitalWrite(LED,HIGH); //LED off
- server.send(200, "text/html", "LockOff"); //Send ADC value only to client ajax request
+ server.send(200, "text/html", "LockOff");
+ 
  lcd.clear();
  lcd.setCursor(0,0);
  lcd.print("Lock Status: OFF");
+ digitalWrite(doorlock,LOW);
 }
 
+//Function to do the thingspeak upload
 void ThingSpeakUpload(){
   ThingSpeak.begin(client);
   ThingSpeak.setField(1,counter);
@@ -95,6 +104,7 @@ void ThingSpeakUpload(){
   client.stop();
 }
 
+//Bluetooth function
 void BLTFunc(){
   if (BTserial.available()){
         c = BTserial.read();
@@ -123,9 +133,13 @@ void BLTFunc(){
         if (c==10) { NL = true; }
     }
 }
-//==============================================================
-//                  SETUP
-//==============================================================
+//   _____  ______  _______  _    _  _____  
+//  / ____||  ____||__   __|| |  | ||  __ \ 
+// | (___  | |__      | |   | |  | || |__) |
+//  \___ \ |  __|     | |   | |  | ||  ___/ 
+//  ____) || |____    | |   | |__| || |     
+// |_____/ |______|   |_|    \____/ |_| 
+
 void setup(void){
   lcd.begin();
   lcd.backlight();
@@ -135,7 +149,7 @@ void setup(void){
   BTserial.begin(9600);
   delay(100);
   
-  WiFi.begin(ssid, password);     //Connect to your WiFi router
+  WiFi.begin(ssid, password);     //CONNECTIN TO WIFI
   Serial.println("");
  
   //Onboard LED port Direction output
@@ -143,33 +157,44 @@ void setup(void){
   //Power on LED state off
   digitalWrite(LED,HIGH);
   
-  // Wait for connection
-  while (WiFi.status() != WL_CONNECTED) {
+  
+  while (WiFi.status() != WL_CONNECTED) { //testing if we can actually connect
     delay(500);
     Serial.print(".");
   }
  
-  //If connection successful show IP address in serial monitor
+  //If connection is accepted we print the ssid and its local IP 
   Serial.println("");
   Serial.print("Connected to ");
   Serial.println(ssid);
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());  //IP address assigned to your ESP
  
-  server.on("/", handleRoot);      //Which routine to handle at root location. This is display page
-  server.on("/LockOn", handleLockON); //as Per  <a href="ledOn">, Subroutine to be called
+  server.on("/", handleRoot);      //We displa root page, and define the two other pages.
+  server.on("/LockOn", handleLockON); //This originates from <a href="LockOn">, Subroutine to be called
   server.on("/LockOff", handleLockOFF); 
  
-  server.begin();                  //Start server
+  server.begin();
   Serial.println("HTTP server started");
 }
 
 
+// _       ____    ____   _____  
+//| |     / __ \  / __ \ |  __ \ 
+//| |    | |  | || |  | || |__) |
+//| |    | |  | || |  | ||  ___/ 
+//| |____| |__| || |__| || |     
+//|______|\____/  \____/ |_|
+ 
 void loop(void){
-  if(timeElapsed > postingInterval){
+  if(timeElapsed > postingInterval){ //if 20s has passed, we wanna do a upload. We do this to have everything running and not doing a delay();
     ThingSpeakUpload();
     timeElapsed = 0;
   }
-  server.handleClient();          //Handle client requests
-  BLTFunc(); 
+  server.handleClient();          //This handles client requests. 
+  BLTFunc();                      // call to our bluetooth function. 
+ 
 }
+
+
+
