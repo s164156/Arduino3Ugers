@@ -8,13 +8,22 @@
 #include <LiquidCrystal_I2C.h>
 #include <ThingSpeak.h>
 #include <elapsedMillis.h>
+#include <MySQL_Connection.h>
+#include <MySQL_Cursor.h>
+IPAddress server_addr (35 ,228 ,121 ,250); //35.228.121.250
+char DBuser [] = "root";
+char DBpass [] = "Freezepolice1";
+//char SQLCOMMAND[] = "INSERT INTO UserIDS.Telekom (UUID) VALUES ('Test'); //format is DBName.TABLE
 elapsedMillis timeElapsed;
+WiFiClient client;
+
+MySQL_Connection conn((Client *)&client);
 
 //Global variable declarations
 char c= ' ';
 boolean NL = true;
 int counter = 0;
-int doorlock = 4; //pin for doorlock
+int doorlock = D5; //pin for doorlock
 
 //thingspeak variables
 unsigned long time1;
@@ -26,7 +35,6 @@ const int postingInterval = 20 * 1000; // posting interval 20s.
 
 // Set the LCD address to 0x27 for a 16 chars and 2 line display
 LiquidCrystal_I2C lcd(0x27, 16, 2);
-WiFiClient client;
 SoftwareSerial BTserial(D6, D7); //D6 -> TXD && D7 -> RXD
 
 
@@ -37,27 +45,38 @@ const char MAIN_page[] PROGMEM = R"=====(
 <body>
 <P ALIGN=LEFT>
 <h1><p align="center">Locking System v0.1 Sebastian & Magnus</h1><br>
-
-Visitor count: somevariable<br>
 <br>
 Click to open lock <a href="LockOff" target ="myIframe"><button type="button">Open Lock!</button></a><br>
 <br>
 Click to close lock <a href="LockOn" target ="myIframe"><button type="button">Close Lock!</button></a><br>
-Current Lock State:<iframe name="myIframe" width="100" height="25" frameBorder="0"><br>
 
+Current Lock State:<iframe name="myIframe" width="100" height="25" frameBorder="0"></iframe><br>
 
+</P>
+<P ALIGN="center">
+<pre>
+ .----------------.   .----------------.   .----------------.   .----------------.   .----------------.   .----------------.  .----------------. 
+| .--------------. | | .--------------. | | .--------------. | | .--------------. | | .--------------. | | .--------------. || .--------------. |
+| | _____  _____ | | | |  _________   | | | |   _____      | | | |     ______   | | | |     ____     | | | | ____    ____ | || |  _________   | |
+| ||_   _||_   _|| | | | |_   ___  |  | | | |  |_   _|     | | | |   .' ___  |  | | | |   .'    `.   | | | ||_   \  /   _|| || | |_   ___  |  | |
+| |  | | /\ | |  | | | |   | |_  \_|  | | | |    | |       | | | |  / .'   \_|  | | | |  /  .--.  \  | | | |  |   \/   |  | || |   | |_  \_|  | |
+| |  | |/  \| |  | | | |   |  _|  _   | | | |    | |   _   | | | |  | |         | | | |  | |    | |  | | | |  | |\  /| |  | || |   |  _|  _   | |
+| |  |   /\   |  | | | |  _| |___/ |  | | | |   _| |__/ |  | | | |  \ `.___.'\  | | | |  \  `--'  /  | | | | _| |_\/_| |_ | || |  _| |___/ |  | |
+| |  |__/  \__|  | | | | |_________|  | | | |  |________|  | | | |   `._____.'  | | | |   `.____.'   | | | ||_____||_____|| || | |_________|  | |
+| |              | | | |              | | | |              | | | |              | | | |              | | | |              | || |              | |
+| '--------------' | | '--------------' | | '--------------' | | '--------------' | | '--------------' | | '--------------' || '--------------' |
+ '----------------'   '----------------'   '----------------'   '----------------'   '----------------'   '----------------'  '----------------'
+ </pre>
 </P>
 
 </body>
 </html>
 )=====";
 
-//Just defined for LED 
-#define LED 2  
- 
+
 //SSID & PASS for the dtu network thing
-const char* ssid = "TP-LINK_8E7A";
-const char* password = "41308561";
+const char* ssid = ".";
+const char* password = "pingpongok5";
  
 //Let's use the 8266WebServer class which is a lot more convient
 ESP8266WebServer server(80); //Server on port 80
@@ -76,7 +95,6 @@ void handleRoot() {
 //LockON 'page'
 void handleLockON() { 
  Serial.println("Lock On Page");
- digitalWrite(LED,LOW); //LED is connected in reverse
  server.send(200, "text/html", "LockOn"); 
  
  lcd.clear();
@@ -87,7 +105,6 @@ void handleLockON() {
 //LockOFF 'page'
 void handleLockOFF() { 
  Serial.println("Lock OFF Page");
- digitalWrite(LED,HIGH); //LED off
  server.send(200, "text/html", "LockOff");
  
  lcd.clear();
@@ -133,6 +150,12 @@ void BLTFunc(){
         if (c==10) { NL = true; }
     }
 }
+
+void UploadToMYSQL(char statement[]){
+  MySQL_Cursor *cur_mem = new MySQL_Cursor(&conn);
+  cur_mem -> execute(statement);
+  delete cur_mem;
+}
 //   _____  ______  _______  _    _  _____  
 //  / ____||  ____||__   __|| |  | ||  __ \ 
 // | (___  | |__      | |   | |  | || |__) |
@@ -153,15 +176,19 @@ void setup(void){
   Serial.println("");
  
   //Onboard LED port Direction output
-  pinMode(LED,OUTPUT); 
+  pinMode(doorlock,OUTPUT); 
   //Power on LED state off
-  digitalWrite(LED,HIGH);
+  //digitalWrite(LED,HIGH);
   
   
   while (WiFi.status() != WL_CONNECTED) { //testing if we can actually connect
     delay(500);
     Serial.print(".");
   }
+  while (conn.connect(server_addr, 3306, DBuser, DBpass) != true){
+    delay(500);
+  }
+  Serial.println("You are now connected to the MySQL Google server.");
  
   //If connection is accepted we print the ssid and its local IP 
   Serial.println("");
@@ -195,6 +222,3 @@ void loop(void){
   BLTFunc();                      // call to our bluetooth function. 
  
 }
-
-
-
