@@ -185,10 +185,10 @@ void setup(void){
     delay(500);
     Serial.print(".");
   }
-  while (conn.connect(server_addr, 3306, DBuser, DBpass) != true){
-    delay(500);
-  }
-  Serial.println("You are now connected to the MySQL Google server.");
+  //while (conn.connect(server_addr, 3306, DBuser, DBpass) != true){
+    //delay(500);
+  //}
+  //Serial.println("You are now connected to the MySQL Google server.");
  
   //If connection is accepted we print the ssid and its local IP 
   Serial.println("");
