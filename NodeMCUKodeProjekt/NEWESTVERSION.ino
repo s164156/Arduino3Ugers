@@ -1,5 +1,4 @@
 //Library includes
-
 #include <SoftwareSerial.h>
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
@@ -15,16 +14,27 @@
 IPAddress server_addr (35 ,228 ,121 ,250); //35.228.121.250
 char DBuser [] = "root";
 char DBpass [] = "Freezepolice1";
-//char SQLCOMMAND[] = "INSERT INTO UserIDS.Telekom (UUID) VALUES ('Test'); //format is DBName.TABLE
-elapsedMillis timeElapsed;
-WiFiClient client;
 
+
+elapsedMillis timeElapsed;
+elapsedMillis timeElapsed2;
+elapsedMillis timeElapsed3;
+
+char INSERT_SQL[] = "UPDATE UserIDS.Telekom SET OpenLock = 102 WHERE id = 1";
+WiFiClient client;
 MySQL_Connection conn((Client *)&client);
+
+void InsertDataFunction(){
+  MySQL_Cursor *cur_mem = new MySQL_Cursor(&conn);
+  cur_mem->execute(INSERT_SQL); 
+  delete cur_mem;
+}
 
 //Global variable declarations
 char c = ' ';
 boolean NL = true;
-int counter = 0;
+int opencounter = 0;
+int closecounter = 0;
 int doorlock = D5; //pin for doorlock
 
 //thingspeak variables
@@ -34,6 +44,8 @@ const char * myWriteAPIKey = "G2GJ90ZGZQJCDNWC";
 const char* serverTHINGSPEAK = "api.thingspeak.com";
 
 const int postingInterval = 20 * 1000; // posting interval 20s.
+const int MySQLCheck = 5 * 1000; //5 second check
+const int postingInterval2 = 3.5 * 1000;
 
 
 // Set the LCD address to 0x27 for a 16 chars and 2 line display
@@ -104,6 +116,7 @@ void handleLockON() {
  lcd.setCursor(0,0);
  lcd.print("Lock Status: ON");
  digitalWrite(doorlock,HIGH);
+ closecounter += 1;
 }
 //LockOFF 'page'
 void handleLockOFF() { 
@@ -114,59 +127,67 @@ void handleLockOFF() {
  lcd.setCursor(0,0);
  lcd.print("Lock Status: OFF");
  digitalWrite(doorlock,LOW);
+ opencounter += 1;
 }
 
 //Function to do the thingspeak upload
 void ThingSpeakUpload(){
   ThingSpeak.begin(client);
-  ThingSpeak.setField(1,counter);
+  ThingSpeak.setField(1,opencounter);
+  ThingSpeak.setField(2,closecounter);
   ThingSpeak.writeFields(channelID, myWriteAPIKey); //get from Thingspeak
   client.stop();
 }
 //Bluetooth function
-String accumulateplz = "";
+int checkuser = 0;
 void BLTFunc(){
   if (BTserial.available()){
     delay(50);
         c = BTserial.read();
-        
+        if(c == 'M'){
+          checkuser = 1;
+          
+        }
+        if(c == 'X'){
+          checkuser = 2;
+          
+        }
         if(c == '0'){
           digitalWrite(doorlock,LOW);
           //lcd.clear();
           lcd.setCursor(0,0);
           lcd.print("Lock Status: OFF");
+          opencounter += 1;
+          if(checkuser == 1){
+            lcd.setCursor(0,1);
+            lcd.print("Magnus entered");
+            
+          }
+          if(checkuser == 2){
+            lcd.setCursor(0,1);
+            lcd.print("Sebastian ENT");
+          }
+          
 
         }
         if(c == '1'){
           digitalWrite(doorlock,HIGH);
-          //lcd.clear();
+          lcd.clear();
           lcd.setCursor(0,0);
           lcd.print("Lock Status: ON");
-
-        }
-        if(c == 'X'){
-          lcd.setCursor(0,1);
-          lcd.print("Sebastian ENT");
-
-        }
-        Serial.println(c);
-        if(c == 'M'){
-          lcd.setCursor(0,1);
-          lcd.print("Magnus Entered");
+          closecounter += 1;
+          checkuser = 0;
 
         }
         
         Serial.write(c);
         
         
-    
-        //Let's assume that when the connection is first made through the app
-        //it sends a single char, from that we can count up how many visitors have been there
-        counter +=1;
-        //Serial.println("Visitor Count: ");
-        //Serial.print(counter);
+
         
     }
+
+    //AT COMMAND CODE, UNCOMMENT IF NEEDED. 
     /*
     // Read from the Serial Monitor and send to the Bluetooth module
     if (Serial.available()){
@@ -183,13 +204,10 @@ void BLTFunc(){
         if (c==10) { NL = true; }
     }
     */
+    
 }
 
-void UploadToMYSQL(char statement[]){
-  MySQL_Cursor *cur_mem = new MySQL_Cursor(&conn);
-  cur_mem -> execute(statement);
-  delete cur_mem;
-}
+
 //   _____  ______  _______  _    _  _____  
 //  / ____||  ____||__   __|| |  | ||  __ \ 
 // | (___  | |__      | |   | |  | || |__) |
@@ -202,7 +220,7 @@ void setup(void){
   lcd.begin();
   lcd.backlight();
   lcd.setCursor(0, 0);
-  lcd.print("HELLO");
+  lcd.print("Booting System");
   
   //Serials
   Serial.begin(9600);
@@ -213,34 +231,50 @@ void setup(void){
   Serial.println("");
  
   //Doorlock pin set to output
-  pinMode(doorlock,OUTPUT); 
-  
+  pinMode(doorlock,OUTPUT);
+  digitalWrite(doorlock,HIGH); //we always start with a locked door. 
   
   
   while (WiFi.status() != WL_CONNECTED) { //testing if we can actually connect
     delay(500);
     Serial.print(".");
   }
-
-  //SQL Server stuff
-  //while (conn.connect(server_addr, 3306, DBuser, DBpass) != true){
-    //delay(500);
-  //}
-  //Serial.println("You are now connected to the MySQL Google server.");
- 
-  //If connection is accepted we print the ssid and its local IP 
   Serial.println("");
   Serial.print("Connected to ");
   Serial.println(ssid);
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());  //IP address assigned to your ESP
+
+  boolean checksql = false;
+  while (conn.connect(server_addr, 3306, DBuser, DBpass) != true) {
+    delay(50);
+    Serial.print ( "." );
+    if(timeElapsed2>MySQLCheck){
+      checksql = true;
+      
+      break;
+    }
+    
+  }
+  if(checksql == true){Serial.println("Could not connect to MySQL Google server, please check your settings");} 
+  else{
+  Serial.println("");  
+  Serial.println("You are now connected to the MySQL Google server.");
+  }
+  
  
   server.on("/", handleRoot);      //We display root page, and define the two other pages.
+  
   server.on("/LockOn", handleLockON); //This originates from <a href="LockOn">, Subroutine to be called
+  
   server.on("/LockOff", handleLockOFF); 
  
   server.begin();
   Serial.println("HTTP server started");
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Lock Status: ON");
+
 }
 
 
@@ -251,15 +285,23 @@ void setup(void){
 //| |____| |__| || |__| || |      
 //|______|\____/  \____/ |_|
  
-void loop(void){
+void loop(){
+
   if(timeElapsed > postingInterval){ //if 20s has passed, we wanna do a upload. We do this to have everything running and not doing a delay();
-    ThingSpeakUpload();
+    ThingSpeakUpload(); 
     timeElapsed = 0;
+    
   }
+  
+  /*if(timeElapsed3 > postingInterval2){ //if 10s has passed, we wanna do a upload. We do this to have everything running and not doing a delay();
+    InsertDataFunction(); 
+    timeElapsed3 = 0;
+    
+  }*/
   server.handleClient();          //This handles client requests. 
   BLTFunc();                      // call to our bluetooth function.
   
-
-
- 
+  
+  
+  
 }
